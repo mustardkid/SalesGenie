@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SalesGenie — VIN Sales Intelligence Dashboard</title>
+  <meta name="description" content="AI-powered VIN decode, buyer profiling, salesperson matching, and pitch generation." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
+  <link rel="stylesheet" href="/styles.css" />
+</head>
+<body>
+  <!-- Header -->
+  <header id="app-header">
+    <div class="header-inner">
+      <div class="header-brand">
+        <i class="fas fa-car-side header-icon"></i>
+        <h1>SalesGenie</h1>
+        <span class="header-badge">D.O.E.</span>
+      </div>
+      <div class="header-status">
+        <span id="status-dot" class="status-dot"></span>
+        <span id="status-text" class="status-text">Checking...</span>
+      </div>
+    </div>
+  </header>
+
+  <main id="app-main">
+    <!-- Scanner Panel -->
+    <section id="scanner-panel" class="panel">
+      <div class="panel-header">
+        <i class="fas fa-barcode"></i>
+        <h2>VIN Scanner</h2>
+      </div>
+      <div class="panel-body">
+        <div class="input-group">
+          <label for="vin-input">Vehicle Identification Number</label>
+          <div class="input-row">
+            <input type="text" id="vin-input" placeholder="Enter 17-character VIN..." maxlength="17" autocomplete="off" spellcheck="false" />
+            <button id="decode-btn" class="btn btn-secondary" title="Decode VIN only">
+              <i class="fas fa-search"></i>
+            </button>
+          </div>
+          <p id="vin-error" class="error-text hidden"></p>
+        </div>
+
+        <div class="input-group">
+          <label>Buyer Personality</label>
+          <div class="personality-grid">
+            <button class="personality-btn selected" data-type="Analytical">
+              <i class="fas fa-chart-line"></i>
+              <span>Analytical</span>
+            </button>
+            <button class="personality-btn" data-type="Driver">
+              <i class="fas fa-bolt"></i>
+              <span>Driver</span>
+            </button>
+            <button class="personality-btn" data-type="Friendly">
+              <i class="fas fa-heart"></i>
+              <span>Friendly</span>
+            </button>
+            <button class="personality-btn" data-type="Expressive">
+              <i class="fas fa-star"></i>
+              <span>Expressive</span>
+            </button>
+          </div>
+        </div>
+
+        <div class="scan-actions">
+          <button id="scan-btn" class="btn btn-primary btn-large">
+            <i class="fas fa-rocket"></i>
+            <span>Generate Sales Brief</span>
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <!-- Pipeline Log -->
+    <section id="pipeline-panel" class="panel hidden">
+      <div class="panel-header">
+        <i class="fas fa-stream"></i>
+        <h2>Pipeline Log</h2>
+        <span id="pipeline-time" class="panel-badge"></span>
+      </div>
+      <div class="panel-body">
+        <div id="pipeline-log" class="pipeline-log"></div>
+      </div>
+    </section>
+
+    <!-- Results Grid -->
+    <div id="results-grid" class="results-grid hidden">
+      <!-- Vehicle Card -->
+      <section id="vehicle-panel" class="panel result-card">
+        <div class="panel-header">
+          <i class="fas fa-truck"></i>
+          <h2>Vehicle</h2>
+          <span id="vehicle-confidence" class="confidence-badge"></span>
+        </div>
+        <div class="panel-body">
+          <h3 id="vehicle-title" class="vehicle-title"></h3>
+          <div id="vehicle-specs" class="specs-grid"></div>
+        </div>
+      </section>
+
+      <!-- Buyer Profile -->
+      <section id="profile-panel" class="panel result-card">
+        <div class="panel-header">
+          <i class="fas fa-user-tag"></i>
+          <h2>Buyer Profile</h2>
+          <span id="profile-confidence" class="confidence-badge"></span>
+        </div>
+        <div class="panel-body">
+          <div id="profile-type" class="profile-type"></div>
+          <div id="profile-details" class="profile-details"></div>
+        </div>
+      </section>
+
+      <!-- Rep Match -->
+      <section id="match-panel" class="panel result-card">
+        <div class="panel-header">
+          <i class="fas fa-handshake"></i>
+          <h2>Rep Match</h2>
+          <span id="match-score" class="confidence-badge"></span>
+        </div>
+        <div class="panel-body">
+          <div id="match-details"></div>
+        </div>
+      </section>
+
+      <!-- Sales Pitch -->
+      <section id="pitch-panel" class="panel result-card span-full">
+        <div class="panel-header">
+          <i class="fas fa-bullhorn"></i>
+          <h2>Sales Pitch</h2>
+        </div>
+        <div class="panel-body">
+          <div id="pitch-details"></div>
+        </div>
+      </section>
+    </div>
+
+    <!-- Roster Editor -->
+    <section id="roster-panel" class="panel">
+      <div class="panel-header">
+        <i class="fas fa-users"></i>
+        <h2>Sales Roster</h2>
+        <button id="add-rep-btn" class="btn btn-small btn-secondary">
+          <i class="fas fa-plus"></i> Add Rep
+        </button>
+      </div>
+      <div class="panel-body">
+        <div id="roster-grid" class="roster-grid"></div>
+      </div>
+    </section>
+  </main>
+
+  <!-- Add Rep Modal -->
+  <div id="rep-modal" class="modal hidden">
+    <div class="modal-backdrop"></div>
+    <div class="modal-content panel">
+      <div class="panel-header">
+        <i class="fas fa-user-plus"></i>
+        <h2 id="modal-title">Add Salesperson</h2>
+        <button id="modal-close" class="btn-icon"><i class="fas fa-times"></i></button>
+      </div>
+      <div class="panel-body">
+        <div class="input-group">
+          <label for="rep-name">Name</label>
+          <input type="text" id="rep-name" placeholder="Sarah Chen" />
+        </div>
+        <div class="input-group">
+          <label for="rep-strengths">Strengths (comma-separated)</label>
+          <input type="text" id="rep-strengths" placeholder="Analytical, Driver" />
+        </div>
+        <div class="input-group">
+          <label for="rep-specialties">Specialties (comma-separated)</label>
+          <input type="text" id="rep-specialties" placeholder="trucks, fleet, commercial" />
+        </div>
+        <div class="input-row">
+          <div class="input-group" style="flex:1">
+            <label for="rep-close-rate">Close Rate %</label>
+            <input type="number" id="rep-close-rate" placeholder="65" min="0" max="100" />
+          </div>
+          <div class="input-group" style="flex:1">
+            <label for="rep-load">Current Load</label>
+            <input type="number" id="rep-load" placeholder="2" min="0" max="10" />
+          </div>
+        </div>
+        <div class="scan-actions">
+          <button id="save-rep-btn" class="btn btn-primary">
+            <i class="fas fa-save"></i> Save
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="/app.js"></script>
+</body>
+</html>

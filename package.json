@@ -1,0 +1,40 @@
+{
+  "name": "salesgenie",
+  "version": "1.0.0",
+  "description": "Agent-Driven VIN Sales Intelligence — D.O.E. Framework",
+  "main": "src/index.ts",
+  "scripts": {
+    "start": "ts-node src/server.ts",
+    "dev": "ts-node src/server.ts",
+    "cli": "ts-node src/index.ts",
+    "demo": "ts-node src/index.ts --vin 3C6UR5FL1KG501234 --personality Analytical",
+    "build": "tsc",
+    "serve": "node dist/server.js",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "cors": "^2.8.6",
+    "dotenv": "^16.4.5",
+    "express": "^5.2.1"
+  },
+  "devDependencies": {
+    "@types/cors": "^2.8.19",
+    "@types/express": "^5.0.6",
+    "@types/node": "^20.11.0",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.3.3"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "keywords": [
+    "vin",
+    "sales",
+    "ai",
+    "gemini",
+    "automotive",
+    "nhtsa",
+    "doe-framework"
+  ],
+  "license": "MIT"
+}

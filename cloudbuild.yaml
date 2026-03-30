@@ -1,0 +1,32 @@
+steps:
+  # Build container
+  - name: 'gcr.io/cloud-builders/docker'
+    args: ['build', '-t', 'gcr.io/$PROJECT_ID/salesgenie', '.']
+
+  # Push to Container Registry
+  - name: 'gcr.io/cloud-builders/docker'
+    args: ['push', 'gcr.io/$PROJECT_ID/salesgenie']
+
+  # Deploy to Cloud Run
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+    entrypoint: gcloud
+    args:
+      - 'run'
+      - 'deploy'
+      - 'salesgenie'
+      - '--image'
+      - 'gcr.io/$PROJECT_ID/salesgenie'
+      - '--region'
+      - 'us-central1'
+      - '--platform'
+      - 'managed'
+      - '--allow-unauthenticated'
+      - '--set-secrets'
+      - 'GEMINI_API_KEY=GEMINI_API_KEY:latest'
+      - '--memory'
+      - '512Mi'
+      - '--timeout'
+      - '60s'
+
+images:
+  - 'gcr.io/$PROJECT_ID/salesgenie'
