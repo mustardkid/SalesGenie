@@ -28,13 +28,17 @@
   async function checkHealth() {
     try {
       const res = await fetch('/api/health');
+      if (!res.ok) throw new Error('Health Check HTTP ' + res.status);
       const data = await res.json();
       if (data.status === 'ok') {
         statusDot.classList.add('online');
         statusDot.classList.remove('offline');
         statusText.textContent = data.geminiConfigured ? 'All Systems Go' : 'Gemini Key Missing';
+      } else {
+        throw new Error('Health Check Status Not OK');
       }
-    } catch {
+    } catch (err) {
+      console.error('Health Check Error:', err);
       statusDot.classList.add('offline');
       statusText.textContent = 'Offline';
     }
@@ -360,8 +364,10 @@
   async function loadRoster() {
     try {
       const res = await fetch('/api/roster');
+      if (!res.ok) throw new Error('Bad roster fetch');
       const roster = await res.json();
-      renderRoster(roster);
+      renderRoster(roster || []);
+
     } catch (err) {
       console.error('Failed to load roster:', err);
     }

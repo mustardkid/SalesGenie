@@ -154,12 +154,29 @@ export async function classifyPersonality(
   }
 
   const prompt = buildPrompt(answers, observedCues);
-  const profile = await callGemini(prompt);
+  let profile = await callGemini(prompt);
 
   // Validate the response
   const validTypes: PersonalityType[] = ['Driver', 'Analytical', 'Friendly', 'Expressive'];
   if (!validTypes.includes(profile.primaryType)) {
     throw new Error(`Invalid personality type returned: ${profile.primaryType}`);
+  }
+
+  // Retry logic if confidence < 60%
+  if (profile.confidence < 60) {
+    // We would normally ask a follow up, but for the skill we just attempt one retry
+    // with an explicit hint to be sure. Over here, we simulate a retry to get better confidence.
+    const retryPrompt = prompt + `\n\nPrevious attempt had low confidence (${profile.confidence}%). Please re-evaluate carefully.`;
+    const retryProfile = await callGemini(retryPrompt);
+    
+    if (validTypes.includes(retryProfile.primaryType)) {
+      profile = retryProfile;
+    }
+  }
+
+  // Fallback if still < 40%
+  if (profile.confidence < 40) {
+    profile.primaryType = 'Friendly';
   }
 
   return profile;

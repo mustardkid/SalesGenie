@@ -10,9 +10,13 @@ dotenv.config();
 import { orchestrate, parseDirective } from './agents/OrchestratorAgent';
 import { decodeVin } from './skills/decodeVin';
 import { Salesperson, PersonalityType } from './types';
+import { db, seedRosterIfEmpty } from './services/db';
 
 const app = express();
 const PORT = parseInt(process.env.PORT || '8080', 10);
+
+// Initialize DB seeding
+seedRosterIfEmpty().catch(console.error);
 
 // ─── Middleware ──────────────────────────────────────────────────────
 app.use(cors());
@@ -20,46 +24,6 @@ app.use(express.json());
 
 // Serve static dashboard
 app.use(express.static(path.join(__dirname, '..', 'public')));
-
-// ─── In-Memory Roster (editable via API) ─────────────────────────────
-let roster: Salesperson[] = [
-  {
-    id: 'rep-001',
-    name: 'Sarah Chen',
-    strengths: ['Analytical', 'Driver'],
-    specialties: ['trucks', 'fleet', 'commercial'],
-    currentLoad: 2,
-    closeRate: 68,
-    available: true,
-  },
-  {
-    id: 'rep-002',
-    name: 'Mike Johnson',
-    strengths: ['Friendly', 'Expressive'],
-    specialties: ['family', 'suv', 'sedans'],
-    currentLoad: 1,
-    closeRate: 55,
-    available: true,
-  },
-  {
-    id: 'rep-003',
-    name: 'Jessica Torres',
-    strengths: ['Expressive', 'Driver'],
-    specialties: ['luxury', 'sports', 'premium'],
-    currentLoad: 3,
-    closeRate: 72,
-    available: true,
-  },
-  {
-    id: 'rep-004',
-    name: 'David Park',
-    strengths: ['Analytical', 'Friendly'],
-    specialties: ['economy', 'hybrid', 'electric'],
-    currentLoad: 0,
-    closeRate: 61,
-    available: true,
-  },
-];
 
 // ─── API Routes ─────────────────────────────────────────────────────
 
@@ -76,6 +40,10 @@ app.get('/api/health', (_req, res) => {
 app.post('/api/scan', async (req, res) => {
   try {
     const { vin, personality, directive: rawDirective, includeMatch, includeListing } = req.body;
+
+    // Fetch current roster from DB
+    const rosterSnapshot = await db.collection('roster').get();
+    const roster: Salesperson[] = rosterSnapshot.docs.map(doc => doc.data() as Salesperson);
 
     let directive: string;
     if (rawDirective) {
@@ -113,6 +81,12 @@ app.post('/api/scan', async (req, res) => {
       };
     }
 
+    // Save scan to history
+    await db.collection('history').add({
+      ...response,
+      createdAt: new Date().toISOString()
+    });
+
     res.json(response);
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
@@ -136,18 +110,29 @@ app.post('/api/decode', async (req, res) => {
 });
 
 // Roster management
-app.get('/api/roster', (_req, res) => {
-  res.json(roster);
+app.get('/api/roster', async (_req, res) => {
+  try {
+    const snapshot = await db.collection('roster').get();
+    const currentRoster = snapshot.docs.map(doc => doc.data());
+    res.json(currentRoster);
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to fetch roster' });
+  }
 });
 
-app.put('/api/roster', (req, res) => {
+app.put('/api/roster', async (req, res) => {
   try {
     const updatedRoster = req.body;
     if (!Array.isArray(updatedRoster)) {
       return res.status(400).json({ error: 'Expected array of salespersons' });
     }
-    roster = updatedRoster;
-    res.json({ success: true, count: roster.length });
+    const batch = db.batch();
+    updatedRoster.forEach(rep => {
+      const docRef = db.collection('roster').doc(rep.id);
+      batch.set(docRef, rep);
+    });
+    await batch.commit();
+    res.json({ success: true, count: updatedRoster.length });
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     res.status(500).json({ error: message });
@@ -155,35 +140,53 @@ app.put('/api/roster', (req, res) => {
 });
 
 // Update single rep
-app.put('/api/roster/:id', (req, res) => {
-  const { id } = req.params;
-  const index = roster.findIndex(r => r.id === id);
-  if (index === -1) {
-    return res.status(404).json({ error: `Rep ${id} not found` });
+app.put('/api/roster/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const docRef = db.collection('roster').doc(id);
+    await docRef.set(req.body, { merge: true });
+    const updated = await docRef.get();
+    res.json(updated.data());
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to update rep' });
   }
-  roster[index] = { ...roster[index], ...req.body };
-  res.json(roster[index]);
 });
 
 // Add rep
-app.post('/api/roster', (req, res) => {
-  const newRep: Salesperson = {
-    id: `rep-${String(roster.length + 1).padStart(3, '0')}`,
-    ...req.body,
-  };
-  roster.push(newRep);
-  res.status(201).json(newRep);
+app.post('/api/roster', async (req, res) => {
+  try {
+    const snapshot = await db.collection('roster').get();
+    const newRep: Salesperson = {
+      id: `rep-${String(snapshot.size + 1).padStart(3, '0')}`,
+      ...req.body,
+    };
+    await db.collection('roster').doc(newRep.id).set(newRep);
+    res.status(201).json(newRep);
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to add rep' });
+  }
 });
 
 // Delete rep
-app.delete('/api/roster/:id', (req, res) => {
-  const { id } = req.params;
-  const index = roster.findIndex(r => r.id === id);
-  if (index === -1) {
-    return res.status(404).json({ error: `Rep ${id} not found` });
+app.delete('/api/roster/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    await db.collection('roster').doc(id).delete();
+    res.json({ success: true });
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to delete rep' });
   }
-  roster.splice(index, 1);
-  res.json({ success: true });
+});
+
+// History endpoint
+app.get('/api/history', async (_req, res) => {
+  try {
+    const snapshot = await db.collection('history').orderBy('createdAt', 'desc').limit(50).get();
+    const history = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    res.json(history);
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to fetch history' });
+  }
 });
 
 // SPA fallback — serve dashboard for all other routes
